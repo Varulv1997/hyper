@@ -1,97 +1,17 @@
-version: 2
+version: 2.1
+orbs:
+  node: circleci/node@1.1.6
 jobs:
-  install:
-    macos:
-      xcode: "9.2.0"
-    working_directory: ~/repo
+  build-and-test:
+    executor:
+      name: node/default
     steps:
       - checkout
-      - restore_cache:
-          key: cache-{{ checksum "yarn.lock" }}
-      - run:
-          name: Installing Dependencies
-          command: yarn --ignore-engines
-      - save_cache:
-          key: cache-{{ checksum "yarn.lock" }}
-          paths:
-            - node_modules
-      - run:
-          name: Getting build icon
-          command: if [[ $CIRCLE_BRANCH == canary ]]; then cp build/canary.icns build/icon.icns; fi
-      - persist_to_workspace:
-          root: .
-          paths:
-            - node_modules
-
-  test:
-    macos:
-      xcode: "9.2.0"
-    steps:
-      - checkout
-      - attach_workspace:
-          at: .
-      - run:
-          name: Testing
-          command: yarn test
-
-  build:
-    macos:
-      xcode: "9.2.0"
-    steps:
-      - checkout
-      - attach_workspace:
-          at: .
-      - run:
-          name: Building
-          command: yarn dist --publish 'never'
-      - store_artifacts:
-          path: dist
-      - persist_to_workspace:
-          root: .
-          paths:
-            - dist
-
-  release:
-    macos:
-      xcode: "9.2.0"
-    steps:
-      - checkout
-      - attach_workspace:
-          at: .
-      - run:
-          name: Deploying to GitHub
-          command: yarn dist
-
-
+      - node/with-cache:
+          steps:
+            - run: npm install
+            - run: npm test
 workflows:
-  version: 2
-  build:
-    jobs:
-      - install:
-          filters:
-            tags:
-              only: /.*/
-      - test:
-          requires:
-            - install
-          filters:
-            tags:
-              only: /.*/
-      - build:
-          requires:
-            - test
-          filters:
-            branches:
-              only:
-                - master
-                - canary
-            tags:
-              ignore: /.*/
-      - release:
-          requires:
-            - test
-          filters:
-            tags:
-              only: /.*/
-            branches:
-              ignore: /.*/
+    build-and-test:
+      jobs:
+        - build-and-test
